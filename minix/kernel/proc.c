@@ -1906,6 +1906,12 @@ static struct proc * pick_proc(void)
 		    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
 	    return rp;
   }
+
+  /* RESGATE OBRIGATÓRIO: Executa o IDLE (Fila 15) */
+  if((rp = rdy_head[15])) {
+      assert(proc_is_runnable(rp));
+      return rp;
+  }
   
   return NULL;
 }
