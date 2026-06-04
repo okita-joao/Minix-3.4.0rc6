@@ -134,6 +134,8 @@ struct proc {
 #if DEBUG_TRACE
   int p_schedules;
 #endif
+
+  int num_tickets; /* Número de tickets de um processo */
 };
 
 #endif /* __ASSEMBLY__ */
