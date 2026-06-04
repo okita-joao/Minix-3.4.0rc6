@@ -293,6 +293,9 @@ EXTERN struct proc proc[NR_TASKS + NR_PROCS];	/* process table */
 int mini_send(struct proc *caller_ptr, endpoint_t dst_e, message *m_ptr,
 	int flags);
 
+/* Função que inicializa o sistema de tickets da loteria */
+void init_tickets(void);
+
 #endif /* __ASSEMBLY__ */
 
 #endif /* PROC_H */
