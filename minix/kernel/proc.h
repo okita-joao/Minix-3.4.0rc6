@@ -140,6 +140,9 @@ struct proc {
 
 #endif /* __ASSEMBLY__ */
 
+/* Número padrão de tickets para processos */
+#define DEFAULT_TICKETS 100
+
 /* Bits for the runtime flags. A process is runnable iff p_rts_flags == 0. */
 #define RTS_SLOT_FREE	0x01	/* process slot is free */
 #define RTS_PROC_STOP	0x02	/* process has been stopped */
