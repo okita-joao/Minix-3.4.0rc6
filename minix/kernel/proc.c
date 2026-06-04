@@ -1889,14 +1889,14 @@ static struct proc * pick_proc(void)
   bilhete é sorteado e ocorre uma varredura na fila para encontrar o processo
   premiado */
   S = 0;
-  cpu_id = get_cpulocal_var(ptproc)->p_cpu; /* Pega o index da CPU atual*/
+  cpu_id = cpuid; /* Pega o index da CPU atual*/
 	
   if((rp = rdy_head[7]) && tickets_total[cpu_id] > 0) {
 		/* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
         numero_aleatorio = park_miller_rand(&semente);
         bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
 
-	    while (rp->p_nextready != NULL && S + rp->num_tickets < bilhete_premiado) {
+	    while (rp->p_nextready != NULL && S + rp->num_tickets <= bilhete_premiado) {
 			S += rp->num_tickets;
 			rp = rp->p_nextready;
 		}
@@ -1905,12 +1905,6 @@ static struct proc * pick_proc(void)
 	    if (priv(rp)->s_flags & BILLABLE)	 	
 		    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
 	    return rp;
-  }
-
-  /* RESGATE OBRIGATÓRIO: Executa o IDLE (Fila 15) */
-  if((rp = rdy_head[15])) {
-      assert(proc_is_runnable(rp));
-      return rp;
   }
   
   return NULL;
