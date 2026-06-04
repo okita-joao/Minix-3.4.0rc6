@@ -1612,10 +1612,10 @@ void enqueue(
   assert(q >= 0);
 
   /* Caso o processo tenha prioridade q, tal que 7 <= q < 15, então esse processo
-  deve ser movido para a Fila 7 (USER_Q) */
-  if(q >= USER_Q && q < IDLE_Q) {
-	  rp->p_priority = USER_Q;
-	  q = USER_Q;
+  deve ser movido para a Fila 7 */
+  if(q >= 7 && q < 15) {
+	  rp->p_priority = 7;
+	  q = 7;
   }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
@@ -1692,10 +1692,10 @@ static void enqueue_head(struct proc *rp)
   assert(q >= 0);
 
   /* Caso o processo tenha prioridade q, tal que 7 <= q < 15, então esse processo
-  deve ser movido para a Fila 7 (USER_Q) */
-  if(q >= USER_Q && q < IDLE_Q) {
-	  rp->p_priority = USER_Q;
-	  q = USER_Q;
+  deve ser movido para a Fila 7 */
+  if(q >= 7 && q < 15) {
+	  rp->p_priority = 7;
+	  q = 7;
   }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
