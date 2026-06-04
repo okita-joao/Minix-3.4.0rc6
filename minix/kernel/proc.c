@@ -67,7 +67,7 @@ static struct priv idle_priv;
 unsigned int tickets_total[CONFIG_MAX_CPUS];
 
 /* semente de geração aleatória */
-unsigned int semente;
+unsigned int semente = SEMENTE;
 
 /* Função de Park_Miller para gerar números aleatórios */
 unsigned int park_miller_rand(unsigned int *seed) {
@@ -155,8 +155,7 @@ void proc_init(void)
 	 * table with privilege structures for the system processes. 
 	 */
 	for (rp = BEG_PROC_ADDR, i = -NR_TASKS; rp < END_PROC_ADDR; ++rp, ++i) {
-		rp->num_tickets = 0; /* Inicializa slot com 0 tickets */
-		rp->compensacao = 0; /* Inicializa slot com 0 tickets de compensação */
+		rp->num_tickets = 0;
 		rp->p_rts_flags = RTS_SLOT_FREE;/* initialize free slot */
 		rp->p_magic = PMAGIC;
 		rp->p_nr = i;			/* proc number from ptr */
@@ -1655,7 +1654,9 @@ void enqueue(
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  tickets_total[rp->p_cpu] += rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] += rp->num_tickets;
+  }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
   rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
@@ -1744,7 +1745,9 @@ static void enqueue_head(struct proc *rp)
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  tickets_total[rp->p_cpu] += rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] += rp->num_tickets;
+  }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
   rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
@@ -1803,7 +1806,9 @@ void dequeue(struct proc *rp)
   assert(!proc_is_runnable(rp));
 
   /* Atualiza o vetor de tickets totais por CPU */
-  tickets_total[rp->p_cpu] -= rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] -= rp->num_tickets;
+  }
 
   /* Verifica se a saída do processo foi voluntária e ocasionada por uma operação
   de I/O, e caso sim ele infla os tickets desse processo para compensar a saída */
@@ -1931,14 +1936,14 @@ static struct proc * pick_proc(void)
   bilhete é sorteado e ocorre uma varredura na fila para encontrar o processo
   premiado */
   S = 0;
-  cpu_id = get_cpulocal_var(ptproc)->p_cpu; /* Pega o index da CPU atual*/
+  cpu_id = cpuid; /* Pega o index da CPU atual*/
 	
-  if((rp = rdy_head[7])) {
+  if((rp = rdy_head[7]) && tickets_total[cpu_id] > 0) {
 		/* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
         numero_aleatorio = park_miller_rand(&semente);
         bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
 
-	    while (rp->p_nextready != NULL && S + rp->num_tickets < bilhete_premiado) {
+	    while (rp->p_nextready != NULL && S + rp->num_tickets <= bilhete_premiado) {
 			S += rp->num_tickets;
 			rp = rp->p_nextready;
 		}
@@ -2124,5 +2129,4 @@ void init_tickets(void) {
 	for(cpu = 0; cpu < CONFIG_MAX_CPUS; cpu++) {
 		tickets_total[cpu] = 0;
 	}
-	semente = SEMENTE;
 }
