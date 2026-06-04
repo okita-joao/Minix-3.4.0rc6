@@ -136,6 +136,7 @@ struct proc {
 #endif
 
   int num_tickets; /* Número de tickets de um processo */
+  int compensacao; /* Número de tickets dados para compensação de um processo */
 };
 
 #endif /* __ASSEMBLY__ */
