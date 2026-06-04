@@ -67,7 +67,7 @@ static struct priv idle_priv;
 unsigned int tickets_total[CONFIG_MAX_CPUS];
 
 /* semente de geração aleatória */
-unsigned int semente;
+unsigned int semente = SEMENTE;
 
 /* Função de Park_Miller para gerar números aleatórios */
 unsigned int park_miller_rand(unsigned int *seed) {
@@ -1654,7 +1654,9 @@ void enqueue(
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  tickets_total[rp->p_cpu] += rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] += rp->num_tickets;
+  }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
   rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
@@ -1743,7 +1745,9 @@ static void enqueue_head(struct proc *rp)
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  tickets_total[rp->p_cpu] += rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] += rp->num_tickets;
+  }
 
   rdy_head = get_cpu_var(rp->p_cpu, run_q_head);
   rdy_tail = get_cpu_var(rp->p_cpu, run_q_tail);
@@ -1794,7 +1798,9 @@ void dequeue(struct proc *rp)
   assert(!proc_is_runnable(rp));
 
   /* Atualiza o vetor de tickets totais por CPU */
-  tickets_total[rp->p_cpu] -= rp->num_tickets;
+  if(q == 7) {
+  	  tickets_total[rp->p_cpu] -= rp->num_tickets;
+  }
 
   /* Side-effect for kernel: check if the task's stack still is ok? */
   assert (!iskernelp(rp) || *priv(rp)->s_stack_guard == STACK_GUARD);
@@ -1885,7 +1891,7 @@ static struct proc * pick_proc(void)
   S = 0;
   cpu_id = get_cpulocal_var(ptproc)->p_cpu; /* Pega o index da CPU atual*/
 	
-  if((rp = rdy_head[7])) {
+  if((rp = rdy_head[7]) && tickets_total[cpu_id] > 0) {
 		/* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
         numero_aleatorio = park_miller_rand(&semente);
         bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
