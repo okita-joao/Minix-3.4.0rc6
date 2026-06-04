@@ -70,7 +70,7 @@ unsigned int tickets_total[CONFIG_MAX_CPUS];
 unsigned int semente;
 
 /* Função de Park_Miller para gerar números aleatórios */
-unsigned int park_miller_schrage(unsigned int *seed) {
+unsigned int park_miller_rand(unsigned int *seed) {
     unsigned int q;
     unsigned int r;
     int hi;
@@ -1714,7 +1714,7 @@ void enqueue(
  */
 static void enqueue_head(struct proc *rp)
 {
-  const int q = rp->p_priority;	 		/* scheduling queue to use */
+  int q = rp->p_priority;	 		/* scheduling queue to use */
 
   struct proc **rdy_head, **rdy_tail;
 
@@ -1734,6 +1734,12 @@ static void enqueue_head(struct proc *rp)
   if(q >= 7 && q < 15) {
 	  rp->p_priority = 7;
 	  q = 7;
+  }
+
+  /* Verifica se o processo acabou de nascer e não possui tickets,
+  e caso não possua ele recebe a quantidade inicial padrão de tickets */
+  if(rp->num_tickets == 0) {
+	  rp->num_tickets = DEFAULT_TICKETS;
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
@@ -1850,7 +1856,7 @@ static struct proc * pick_proc(void)
   register struct proc *rp;			/* process to run */
   struct proc **rdy_head;
   int q;				/* iterate over queues */
-  int S; 				/* Contador */
+  unsigned int S; 		/* Contador */
   unsigned int cpu_id;  /* ID da CPU */
   unsigned int numero_aleatorio; /* vai guardar o número aleatório gerado */
   unsigned int bilhete_premiado; /* será definitivamente o bilhete sorteado */
@@ -1879,7 +1885,7 @@ static struct proc * pick_proc(void)
   S = 0;
   cpu_id = get_cpulocal_var(ptproc)->p_cpu; /* Pega o index da CPU atual*/
 	
-  if(!(rp = rdy_head[7])) {
+  if((rp = rdy_head[7])) {
 		/* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
         numero_aleatorio = park_miller_rand(&semente);
         bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
@@ -1889,12 +1895,6 @@ static struct proc * pick_proc(void)
 			rp = rp->p_nextready;
 		}
 
-	    assert(proc_is_runnable(rp));
-	    if (priv(rp)->s_flags & BILLABLE)	 	
-		    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-	    return rp;
-  }
-  else if(!(rp = rdy_head[15])) {
 	    assert(proc_is_runnable(rp));
 	    if (priv(rp)->s_flags & BILLABLE)	 	
 		    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
@@ -2076,4 +2076,5 @@ void init_tickets(void) {
 	for(cpu = 0; cpu < CONFIG_MAX_CPUS; cpu++) {
 		tickets_total[cpu] = 0;
 	}
+	semente = SEMENTE;
 }
