@@ -157,6 +157,9 @@ void kmain(kinfo_t *local_cbi)
   proc_init();
   IPCF_POOL_INIT();
 
+  /* Inicializações necessárias para o Lottery Scheduler */
+  init_tickets();
+
    if(NR_BOOT_MODULES != kinfo.mbi.mi_mods_count)
    	panic("expecting %d boot processes/modules, found %d",
 		NR_BOOT_MODULES, kinfo.mbi.mi_mods_count);
