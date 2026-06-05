@@ -159,7 +159,7 @@ void proc_init(void)
 	 */
 	for (rp = BEG_PROC_ADDR, i = -NR_TASKS; rp < END_PROC_ADDR; ++rp, ++i) {
 		rp->num_tickets = 0; /* Inicializa slt com 0 tickets */
-		rp->compensacao = 0/ /* Inicializa solt com 0 tickets de compensação */
+		rp->compensacao = 0; /* Inicializa solt com 0 tickets de compensação */
 		rp->p_rts_flags = RTS_SLOT_FREE;/* initialize free slot */
 		rp->p_magic = PMAGIC;
 		rp->p_nr = i;			/* proc number from ptr */
@@ -1927,12 +1927,16 @@ static struct proc * pick_proc(void)
 
 	if (rp->compensacao > 0) {
 		rp->num_tickets -= rp->compensacao;
+		tickets_na_fila[cpuid][q] -= rp->compensacao;
 		rp->compensacao = 0;
 	}
 	return rp;
   }
 
   /* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
+  if(tickets_total[cpu_id] == 0) {
+    return NULL;
+  }
   numero_aleatorio = park_miller_rand(&semente);
   bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
 
@@ -1952,6 +1956,8 @@ static struct proc * pick_proc(void)
 
 		    if (rp->compensacao > 0) {
 				rp->num_tickets -= rp->compensacao;
+				tickets_total[cpuid] -= rp->compensacao;
+				tickets_na_fila[cpuid][q] -= rp->compensacao;
 				rp->compensacao = 0;
 			}
 		    return rp;
