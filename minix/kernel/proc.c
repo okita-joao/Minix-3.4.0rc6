@@ -1732,6 +1732,7 @@ static void enqueue_head(struct proc *rp)
   /* Verifica se o processo acabou de nascer e não possui tickets,
   e caso não possua ele recebe a quantidade inicial padrão de tickets */
   if(rp->num_tickets == 0) {
+	  printf("processo (%d) nasceu e recebeu %d tickets", rp->p_nr, DEFAULT_TICKETS);
 	  rp->num_tickets = DEFAULT_TICKETS;
   }
 
@@ -1806,7 +1807,7 @@ void dequeue(struct proc *rp)
   /* Verifica se a saída do processo foi voluntária e ocasionada por uma operação
   de I/O, e caso sim ele infla os tickets desse processo para compensar a saída */
 
-  if((rp->p_cpu_time_left > 0) && ((rp->p_rts_flags & RTS_RECEIVING) || (rp->p_rts_flags & RTS_SENDING))) {
+  if((rp->p_cpu_time_left > 0) && ((rp->p_rts_flags & RTS_RECEIVING) || (rp->p_rts_flags & RTS_SENDING)) && (q >= 7)) {
 	  t_restante = cpu_time_2_ms(rp->p_cpu_time_left);
 	  t_quantum = rp->p_quantum_size_ms;
 	  t_usado = t_quantum - t_restante;
@@ -1928,6 +1929,7 @@ static struct proc * pick_proc(void)
 		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
 
 	if (rp->compensacao > 0) {
+		printf("O processo (%d) rodou e perdeu %d tickets de compensacao.\n", rp->p_nr, rp->compensacao);
 		rp->num_tickets -= rp->compensacao;
 		tickets_na_fila[cpuid][q] -= rp->compensacao;
 		rp->compensacao = 0;
