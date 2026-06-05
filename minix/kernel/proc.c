@@ -159,6 +159,7 @@ void proc_init(void)
 	 */
 	for (rp = BEG_PROC_ADDR, i = -NR_TASKS; rp < END_PROC_ADDR; ++rp, ++i) {
 		rp->num_tickets = 0; /* Inicializa slt com 0 tickets */
+		rp->compensacao = 0/ /* Inicializa solt com 0 tickets de compensação */
 		rp->p_rts_flags = RTS_SLOT_FREE;/* initialize free slot */
 		rp->p_magic = PMAGIC;
 		rp->p_nr = i;			/* proc number from ptr */
@@ -1782,6 +1783,14 @@ void dequeue(struct proc *rp)
   struct proc **xpp;			/* iterate over queue */
   struct proc *prev_xp;
   u64_t tsc, tsc_delta;
+  unsigned int M;				/* Multiplicador de Compensação */
+  unsigned int N;				/* Variável auxiliar */
+  unsigned t_restante;			/* Tempo restante em ms do quantum do processo */
+  unsigned t_usado;				/* Tempo em ms utilizado pelo processo */
+  unsigned t_quantum;			/* Tempo em ms do quantum do processo */
+  unsigned t_usado_limitado;	/* t_usado limitado para não explodir o multiplicador M */
+  int tickets_teto;				/* Variável auxiliar, representa o máximo de tickets
+                                   para um processo no sistema */
 
   struct proc **rdy_tail;
 
@@ -1792,6 +1801,44 @@ void dequeue(struct proc *rp)
   tickets_na_fila[rp->p_cpu][q] -= rp->num_tickets;
   if(q >= 7) {
   	  tickets_total[rp->p_cpu] -= rp->num_tickets;
+  }
+
+  /* Verifica se a saída do processo foi voluntária e ocasionada por uma operação
+  de I/O, e caso sim ele infla os tickets desse processo para compensar a saída */
+
+  if((rp->p_cpu_time_left > 0) && ((rp->p_rts_flags & RTS_RECEIVING) || (rp->p_rts_flags & RTS_SENDING))) {
+	  t_restante = cpu_time_2_ms(rp->p_cpu_time_left);
+	  t_quantum = rp->p_quantum_size_ms;
+	  t_usado = t_quantum - t_restante;
+
+	  /* Multiplicador de compensação M = (t_quantum / t_usado_limitado) */
+
+	  /* t_usado_limitado = max(1, t_usado) : isso evita que o multiplicador M exploda */
+	  if (t_usado < 1) {
+		  t_usado_limitado = 1;
+	  }
+	  else {
+		  t_usado_limitado = t_usado;
+	  }
+
+	  /* Aplicando teto para o multiplicador M também */
+	  M = t_quantum / t_usado_limitado;
+	  if(MULTIPLICADOR_TETO < M)
+		  M = MULTIPLICADOR_TETO;
+
+	  /* Aplicando teto para a quantidade final de tickets de compensação */
+	  N = rp->num_tickets * M;
+
+	  /* Calculando o teto de tickets para um processo */
+	  tickets_teto = (PORCENT_TETO_TICKETS * tickets_total[rp->p_cpu])/100;
+	  if(tickets_teto < N)
+		  N = tickets_teto;
+
+	  /* Concedendo a comepnsação ao processo bloqueado por I/O */
+	  if(N > rp->num_tickets) {
+		rp->compensacao = N - rp->num_tickets;
+		rp->num_tickets += rp->compensacao;
+	  }
   }
 
   /* Side-effect for kernel: check if the task's stack still is ok? */
@@ -1877,6 +1924,11 @@ static struct proc * pick_proc(void)
 	assert(proc_is_runnable(rp));
 	if (priv(rp)->s_flags & BILLABLE)	 	
 		get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
+
+	if (rp->compensacao > 0) {
+		rp->num_tickets -= rp->compensacao;
+		rp->compensacao = 0;
+	}
 	return rp;
   }
 
@@ -1897,6 +1949,11 @@ static struct proc * pick_proc(void)
 		    assert(proc_is_runnable(rp));
 		    if (priv(rp)->s_flags & BILLABLE)	 	
 			    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
+
+		    if (rp->compensacao > 0) {
+				rp->num_tickets -= rp->compensacao;
+				rp->compensacao = 0;
+			}
 		    return rp;
 	  }
 	  else {
