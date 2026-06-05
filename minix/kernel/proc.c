@@ -63,8 +63,11 @@ static void enqueue_head(struct proc *rp);
 /* all idles share the same idle_priv structure */
 static struct priv idle_priv;
 
-/* Vetor que guarda o total de tickets dos processos prontos em cada CPU */
+/* Vetor que guarda o total de tickets dos processos prontos em cada CPU a partir da fila 7*/
 unsigned int tickets_total[CONFIG_MAX_CPUS];
+
+/* Matriz que guarda o total de tickets dos processos prontos em cada fila da CPU */
+unsigned int tickets_na_fila[CONFIG_MAX_CPUS][NR_SCHED_QUEUES];
 
 /* semente de geração aleatória */
 unsigned int semente = SEMENTE;
@@ -155,7 +158,7 @@ void proc_init(void)
 	 * table with privilege structures for the system processes. 
 	 */
 	for (rp = BEG_PROC_ADDR, i = -NR_TASKS; rp < END_PROC_ADDR; ++rp, ++i) {
-		rp->num_tickets = 0;
+		rp->num_tickets = 0; /* Inicializa slt com 0 tickets */
 		rp->p_rts_flags = RTS_SLOT_FREE;/* initialize free slot */
 		rp->p_magic = PMAGIC;
 		rp->p_nr = i;			/* proc number from ptr */
@@ -1640,13 +1643,6 @@ void enqueue(
 
   assert(q >= 0);
 
-  /* Caso o processo tenha prioridade q, tal que 7 <= q < 15, então esse processo
-  deve ser movido para a Fila 7 */
-  if(q >= 7 && q < 15) {
-	  rp->p_priority = 7;
-	  q = 7;
-  }
-
   /* Verifica se o processo acabou de nascer e não possui tickets,
   e caso não possua ele recebe a quantidade inicial padrão de tickets */
   if(rp->num_tickets == 0) {
@@ -1654,7 +1650,8 @@ void enqueue(
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  if(q == 7) {
+  tickets_na_fila[rp->p_cpu][q] += rp->num_tickets;
+  if(q >= 7) {
   	  tickets_total[rp->p_cpu] += rp->num_tickets;
   }
 
@@ -1731,13 +1728,6 @@ static void enqueue_head(struct proc *rp)
 
   assert(q >= 0);
 
-  /* Caso o processo tenha prioridade q, tal que 7 <= q < 15, então esse processo
-  deve ser movido para a Fila 7 */
-  if(q >= 7 && q < 15) {
-	  rp->p_priority = 7;
-	  q = 7;
-  }
-
   /* Verifica se o processo acabou de nascer e não possui tickets,
   e caso não possua ele recebe a quantidade inicial padrão de tickets */
   if(rp->num_tickets == 0) {
@@ -1745,7 +1735,8 @@ static void enqueue_head(struct proc *rp)
   }
 
   /* Atualiza os valores do vetor tickets_total da respectiva CPU do processo */
-  if(q == 7) {
+  tickets_na_fila[rp->p_cpu][q] += rp->num_tickets;
+  if(q >= 7) {
   	  tickets_total[rp->p_cpu] += rp->num_tickets;
   }
 
@@ -1798,7 +1789,8 @@ void dequeue(struct proc *rp)
   assert(!proc_is_runnable(rp));
 
   /* Atualiza o vetor de tickets totais por CPU */
-  if(q == 7) {
+  tickets_na_fila[rp->p_cpu][q] -= rp->num_tickets;
+  if(q >= 7) {
   	  tickets_total[rp->p_cpu] -= rp->num_tickets;
   }
 
@@ -1874,8 +1866,11 @@ static struct proc * pick_proc(void)
 
   /* Prioridade para processos nativos e mais importantes que os de usuários */
   /* Varredura padrão Minix das Filas 0 até 6 */
+  S = 0;
+  cpu_id = cpuid; /* Pega o index da CPU atual*/
+	
   rdy_head = get_cpulocal_var(run_q_head);
-  for (q=0; q < 7; q++) {	
+  for (q=0; q < 7; q++) {
 	if(!(rp = rdy_head[q])) {
 		continue;
 	}
@@ -1885,26 +1880,28 @@ static struct proc * pick_proc(void)
 	return rp;
   }
 
-  /* Caso a Fila de processos de usuário (Fila 7) não esteja vazia,  então um
-  bilhete é sorteado e ocorre uma varredura na fila para encontrar o processo
-  premiado */
-  S = 0;
-  cpu_id = cpuid; /* Pega o index da CPU atual*/
+  /* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
+  numero_aleatorio = park_miller_rand(&semente);
+  bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
+
+  for(q = 7; q < NR_SCHED_QUEUES; q++) {
+	  if(!(rp = rdy_head[q])) {
+		continue;
+	  }
+	  if(S + tickets_na_fila[cpu_id][q] >= bilhete_sorteado) {
+		   while (rp->p_nextready != NULL && S + rp->num_tickets <= bilhete_premiado) {
+				S += rp->num_tickets;
+				rp = rp->p_nextready;
+			}
 	
-  if((rp = rdy_head[7]) && tickets_total[cpu_id] > 0) {
-		/* Sorteio por meio da função de Park_Miller para gerar o bilhete aleatório */
-        numero_aleatorio = park_miller_rand(&semente);
-        bilhete_premiado = numero_aleatorio % tickets_total[cpu_id];
-
-	    while (rp->p_nextready != NULL && S + rp->num_tickets <= bilhete_premiado) {
-			S += rp->num_tickets;
-			rp = rp->p_nextready;
-		}
-
-	    assert(proc_is_runnable(rp));
-	    if (priv(rp)->s_flags & BILLABLE)	 	
-		    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
-	    return rp;
+		    assert(proc_is_runnable(rp));
+		    if (priv(rp)->s_flags & BILLABLE)	 	
+			    get_cpulocal_var(bill_ptr) = rp; /* bill for system time */
+		    return rp;
+	  }
+	  else {
+		  S += tickets_na_fila[cpu_id][q];
+	  }
   }
   
   return NULL;
@@ -2078,9 +2075,11 @@ void ser_dump_proc(void)
 }
 
 void init_tickets(void) {
-	int cpu;
+	int cpu, q;
 	for(cpu = 0; cpu < CONFIG_MAX_CPUS; cpu++) {
 		tickets_total[cpu] = 0;
+		for(q = 0; q < NR_SCHED_QUEUES; q++) {
+			tickets_na_fila[cpu][q] = 0;
+		}
 	}
-	semente = SEMENTE;
 }
