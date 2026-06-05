@@ -1830,13 +1830,15 @@ void dequeue(struct proc *rp)
 	  N = rp->num_tickets * M;
 
 	  /* Calculando o teto de tickets para um processo */
+	  /*
 	  tickets_teto = (PORCENT_TETO_TICKETS * tickets_total[rp->p_cpu])/100;
 	  if(tickets_teto < N)
-		  N = tickets_teto;
+		  N = tickets_teto; */
 
 	  /* Concedendo a comepnsação ao processo bloqueado por I/O */
 	  if(N > rp->num_tickets) {
 		rp->compensacao = N - rp->num_tickets;
+		printf("processo (%d) recebeu %d tickets de compensacao.\n", rp->p_nr, rp->compensacao);
 		rp->num_tickets += rp->compensacao;
 	  }
   }
