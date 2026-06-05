@@ -142,13 +142,13 @@ struct proc {
 #endif /* __ASSEMBLY__ */
 
 /* Número padrão de tickets para processos */
-#define DEFAULT_TICKETS 100
+#define DEFAULT_TICKETS 10
 
 /* Teto para o multiplicador de tickets de compensação (M E [4, 10]) */
-#define MULTIPLICADOR_TETO 100
+#define MULTIPLICADOR_TETO 1000
 
 /* Teto para a porcentagem de tickets que um processo pode ter com relação ao total */
-#define PORCENT_TETO_TICKETS 1000
+#define PORCENT_TETO_TICKETS 100000
 
 /* Valor inicial na semente de geração aleatória */
 #define SEMENTE 12345
