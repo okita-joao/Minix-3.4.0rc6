@@ -75,6 +75,7 @@ int do_clear(struct proc * caller, message * m_ptr)
 #endif
   /* Limpando os dados do processo morto na table process */
   rc->num_tickets = 0;
+  rc->compensacao = 0;
   
   return OK;
 }
