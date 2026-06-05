@@ -1888,7 +1888,7 @@ static struct proc * pick_proc(void)
 	  if(!(rp = rdy_head[q])) {
 		continue;
 	  }
-	  if(S + tickets_na_fila[cpu_id][q] >= bilhete_sorteado) {
+	  if(S + tickets_na_fila[cpu_id][q] >= bilhete_premiado) {
 		   while (rp->p_nextready != NULL && S + rp->num_tickets <= bilhete_premiado) {
 				S += rp->num_tickets;
 				rp = rp->p_nextready;
